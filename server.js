@@ -3,32 +3,56 @@ const cors = require('cors');
 const admin = require('firebase-admin');
 require('dotenv').config();
 
-// Initialisation de Firebase Admin
-const serviceAccount = require('./serviceAccountKey.json');
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
-
-const db = admin.firestore();
 const app = express();
-
-// PORT - Une seule déclaration !
-const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// Route de test
+// Initialisation de Firebase SANS fichier JSON (utilisation des credentials par défaut)
+try {
+  // Pour Railway, on utilise les credentials par défaut
+  admin.initializeApp({
+    projectId: 'smg-projet'
+    // Pas de fichier JSON ici !
+  });
+  console.log('✅ Firebase initialisé avec succès');
+} catch (error) {
+  console.error('❌ Erreur initialisation Firebase:', error.message);
+}
+
+const db = admin.firestore();
+
+// Route de test simple
 app.get('/', (req, res) => {
-  res.json({ message: '🚀 API SMG fonctionne !' });
+  res.json({
+    status: 'ok',
+    message: '🚀 API SMG est en ligne !',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Route de santé
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    service: 'SMG Backend',
+    version: '1.0.0',
+    firebase: db ? 'connected' : 'error'
+  });
 });
 
 // 📦 ROUTE : Créer un devis
 app.post('/api/devis', async (req, res) => {
   try {
     const { client, services, typeProjet, estMembreClub } = req.body;
-    
+
+    // Vérification que Firebase est OK
+    if (!db) {
+      throw new Error('Base de données non disponible');
+    }
+
     // Tableau des prix
     const prixServices = {
       mix: 15000,
@@ -52,44 +76,58 @@ app.post('/api/devis', async (req, res) => {
       audit10: 25000,
       auditComplet: 50000
     };
-    
+
     let total = 0;
-    services.forEach(service => {
-      if (prixServices[service]) {
-        total += prixServices[service];
-      }
-    });
-    
+    if (services && Array.isArray(services)) {
+      services.forEach(service => {
+        if (prixServices[service]) {
+          total += prixServices[service];
+        }
+      });
+    }
+
     // Réduction Club SMG (-20%)
     if (estMembreClub) {
       total = total * 0.8;
     }
-    
+
     total = Math.round(total);
-    
+
     // Sauvegarder le devis dans Firestore
-    const devisRef = await db.collection('devis').add({
-      client: client,
-      services: services,
-      typeProjet: typeProjet,
-      estMembreClub: estMembreClub,
+    const devisData = {
+      client: client || { nom: 'Anonyme', email: '' },
+      services: services || [],
+      typeProjet: typeProjet || 'single',
+      estMembreClub: estMembreClub || false,
       total: total,
       statut: 'en_attente',
       dateCreation: admin.firestore.FieldValue.serverTimestamp()
-    });
-    
-    res.json({ 
-      success: true, 
+    };
+
+    const devisRef = await db.collection('devis').add(devisData);
+
+    res.json({
+      success: true,
       devisId: devisRef.id,
       total: total
     });
-    
+
   } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error('❌ Erreur API devis:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      details: 'Erreur lors de la création du devis'
+    });
   }
 });
 
-// Écoute du serveur sur 0.0.0.0 (obligatoire pour Railway)
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Serveur SMG démarré sur le port ${PORT} (écoute sur 0.0.0.0)`);
+// PORT et HOST
+const PORT = process.env.PORT || 3000;
+const HOST = '0.0.0.0';
+
+// Démarrage du serveur
+app.listen(PORT, HOST, () => {
+  console.log(`✅ Serveur SMG démarré avec succès sur ${HOST}:${PORT}`);
+  console.log(`📍 Teste la route /health pour vérifier`);
 });

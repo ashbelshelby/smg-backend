@@ -1,3 +1,17 @@
+# Dépendances Node.js
 node_modules/
+
+# Fichier de clé Firebase (ne surtout pas partager !)
 serviceAccountKey.json
+
+# Fichier d'environnement local
 .env
+
+# Logs
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Dossier OS
+.DS_Store
+Thumbs.db
