@@ -11,7 +11,9 @@ admin.initializeApp({
 
 const db = admin.firestore();
 const app = express();
-const port = process.env.PORT || 3000;
+
+// PORT - Une seule déclaration !
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
@@ -27,7 +29,7 @@ app.post('/api/devis', async (req, res) => {
   try {
     const { client, services, typeProjet, estMembreClub } = req.body;
     
-    // Tableau des prix (copie de tes tarifs)
+    // Tableau des prix
     const prixServices = {
       mix: 15000,
       mastering: 10000,
@@ -87,6 +89,7 @@ app.post('/api/devis', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`🚀 Serveur SMG démarré sur le port ${port}`);
+// Écoute du serveur sur 0.0.0.0 (obligatoire pour Railway)
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Serveur SMG démarré sur le port ${PORT} (écoute sur 0.0.0.0)`);
 });
